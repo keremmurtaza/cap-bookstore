@@ -17,7 +17,7 @@ entity Authors : cuid, managed {
     books : Association to many Books
                 on books.author = $self;
 }
-//test
+
 entity Chapters : cuid, managed {
         number : Integer;
     key book   : Association to Books;
