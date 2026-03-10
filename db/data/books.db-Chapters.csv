@@ -1,0 +1,3 @@
+book_ID,ID,number,createdAt,createdBy,modifiedAt,modifiedBy
+23578031-31e0-4377-aa7e-c176c381673c,2826014d-329d-4f3c-8c43-da96cbf6b05a,30,2022-07-16T00:00:00.000Z,createdBy.1okke@example.org,2018-09-01T00:00:00.000Z,modifiedBy.1okke@example.net
+23578031-31e0-4377-aa7e-c176c381673c,28260157-d3f3-4f6f-b367-3ebb34d630bb,45,2008-08-22T00:00:00.000Z,createdBy.1okkf@example.net,2008-06-07T00:00:00.000Z,modifiedBy.1okkf@example.com
