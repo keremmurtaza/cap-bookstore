@@ -1,74 +1,38 @@
 _schema-version: 3.3.0
 ID: bookstore-v2
+description: A simple CAP project.
 version: 1.0.0
-description: "A simple CAP project - Version 2"
-parameters:
-  enable-parallel-deployments: true
-  deploy_mode: html5-repo
-build-parameters:
-  before-all:
-    - builder: custom
-      commands:
-        - npm ci
-        - npx cds build --production
 modules:
   - name: bookstore-srv
     type: nodejs
     path: gen/srv
-    parameters:
-      instances: 1
-      buildpack: nodejs_buildpack
-    build-parameters:
-      builder: npm-ci
+    requires:
+      - name: bookstore-db-v2
+      - name: bookstore-auth
+      - name: bookstore-destination
     provides:
       - name: srv-api
         properties:
           srv-url: ${default-url}
-    requires:
-      - name: bookstore-auth
-      - name: bookstore-db-v2
-      - name: bookstore-destination
+    parameters:
+      buildpack: nodejs_buildpack
+    build-parameters:
+      builder: npm-ci
 
   - name: bookstore-db-deployer
     type: hdb
     path: gen/db
-    parameters:
-      buildpack: nodejs_buildpack
     requires:
       - name: bookstore-db-v2
+    parameters:
+      buildpack: nodejs_buildpack
 
-  - name: bookstore-app-deployer
+  - name: bookstore-destination-content
     type: com.sap.application.content
-    path: gen
     requires:
-      - name: bookstore-auth
-      - name: srv-api
-      - name: bookstore-html5-repo-host
+      - name: bookstore-destination
         parameters:
           content-target: true
-          config:
-            HTML5Runtime_enabled: true
-    build-parameters:
-      build-result: app/
-      requires:
-        - name: bookstorebookstorelistview
-          artifacts:
-            - bookstore-listview.zip
-          target-path: app/
-
-  - name: bookstorebookstorelistview
-    type: html5
-    path: app/bookstore-listview
-    build-parameters:
-      build-result: dist
-      builder: custom
-      commands:
-        - npm ci
-        - npm run build
-
-  - name: bookstore-destinations
-    type: com.sap.application.content
-    requires:
       - name: bookstore-auth
         parameters:
           service-key:
@@ -78,41 +42,82 @@ modules:
           service-key:
             name: bookstore-html5-repo-host-key
       - name: srv-api
-      - name: bookstore-destination
-        parameters:
-          content-target: true
     build-parameters:
       no-source: true
     parameters:
       content:
         instance:
-          existing_destinations_policy: update
           destinations:
-            - Name: bookstore-html5-repository
-              ServiceInstanceName: bookstore-html5-repo-host
-              ServiceKeyName: bookstore-html5-repo-host-key
-              sap.cloud.service: bookstore.service
-            - Name: bookstore-auth
-              Authentication: OAuth2UserTokenExchange
+            - Authentication: OAuth2UserTokenExchange
+              Name: bookstore-app-auth
               ServiceInstanceName: bookstore-xsuaa-service
               ServiceKeyName: bookstore-auth-key
               sap.cloud.service: bookstore.service
+            - Name: bookstore-srv-api
+              TokenServiceInstanceName: bookstore-xsuaa-service
+              TokenServiceKeyName: bookstore-auth-key
+              URL: ~{srv-api/srv-url}
+              sap.cloud.service: bookstore.service
+          existing_destinations_policy: update
+
+  - name: bookstore-app-content
+    type: com.sap.application.content
+    path: .
+    requires:
+      - name: bookstore-html5-repo-host
+        parameters:
+          content-target: true
+    build-parameters:
+      build-result: resources
+      requires:
+        - artifacts:
+            - bookstore-listview.zip
+          name: bookstore-listview
+          target-path: resources/
+
+  - name: bookstore-listview
+    type: html5
+    path: app/bookstore-listview
+    build-parameters:
+      build-result: dist
+      builder: custom
+      commands:
+        - npm install
+        - npm run build
+      supported-platforms: []
 
 resources:
-  - name: bookstore-auth
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: xsuaa
-      service-plan: application
-      service-name: bookstore-xsuaa-service
-      path: ./xs-security.json
-      config:
-        xsappname: bookstore-${org}-${space}
-        tenant-mode: dedicated
-        oauth2-configuration:
-          credential-types:
-            - "binding-secret"
-            - "x509"
   - name: bookstore-db-v2
     type: com.sap.xs.hdi-container
     parameters:
+      service: hana
+      service-plan: hdi-shared
+  - name: bookstore-auth
+    type: org.cloudfoundry.managed-service
+    parameters:
+      config:
+        tenant-mode: dedicated
+        xsappname: bookstore-${org}-${space}
+      path: ./xs-security.json
+      service: xsuaa
+      service-name: bookstore-xsuaa-service
+      service-plan: application
+  - name: bookstore-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      config:
+        HTML5Runtime_enabled: true
+      service: destination
+      service-plan: lite
+  - name: bookstore-html5-repo-host
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-host
+
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
